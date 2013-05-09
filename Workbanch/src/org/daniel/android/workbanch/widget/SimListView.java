@@ -4,9 +4,11 @@ import java.util.Stack;
 
 import android.content.Context;
 import android.graphics.Rect;
+import android.os.Vibrator;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.GestureDetector.OnGestureListener;
+import android.view.animation.TranslateAnimation;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,13 +24,19 @@ import android.widget.Scroller;
  * */
 public class SimListView extends ViewGroup implements OnGestureListener {
     public static final int INVALID_POSITION = -1;
+    public static final int FOLD_DURATION = 300;
+    private static final int INTERVAL = 15;
+    private static final long VIBRATOR_DURATION = 23;
     // Widgets
     private Adapter mAdapter = null;
     private GestureDetector mGestureDetector;
 
     // Variables
+    private Vibrator mVibrator;
     private Stack<View> mViewStack = new Stack<View>();
     private FlingRunable mFlingRunable;
+    // 滑动到底端的刷新
+    private Runnable mScroll2EndRunnable;
 
     // package
     int mFirstVisiblePosition = 0;
@@ -37,6 +45,8 @@ public class SimListView extends ViewGroup implements OnGestureListener {
 
     private OnItemClickListener mOnItemClickListener;
     private OnItemLongClickListener mOnItemLongClickListener;
+    private OnItemExpandedListener mOnItemExpandedListener;
+    private OnItemFoldedListener mOnItemFoldedListener;
 
     public SimListView(Context context) {
         super(context);
@@ -54,8 +64,14 @@ public class SimListView extends ViewGroup implements OnGestureListener {
     }
 
     private void init(Context context) {
+        if (isInEditMode()) {
+            return;
+        }
         mGestureDetector = new GestureDetector(context, this);
         mFlingRunable = new FlingRunable(context);
+
+        mVibrator = (Vibrator) context
+                .getSystemService(Context.VIBRATOR_SERVICE);
     }
 
     public Adapter getAdapter() {
@@ -81,21 +97,20 @@ public class SimListView extends ViewGroup implements OnGestureListener {
         }
 
         invalidateViews();
-
     }
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        return true;
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             removeCallbacks(mFlingRunable);
         }
 
-        mGestureDetector.onTouchEvent(event);
+        return mGestureDetector.onTouchEvent(ev);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent ev) {
+        mGestureDetector.onTouchEvent(ev);
 
         return true;
     }
@@ -112,21 +127,29 @@ public class SimListView extends ViewGroup implements OnGestureListener {
 
     @Override
     public void onLongPress(MotionEvent e) {
+
         int pos = pointToPosition((int) e.getX(), (int) e.getY());
-        if (mOnItemClickListener != null && pos != INVALID_POSITION) {
+        if (mOnItemLongClickListener != null && pos != INVALID_POSITION) {
             mOnItemLongClickListener.onLongClick(this, getChildAt(pos), pos
                     + mFirstVisiblePosition);
+            mVibrator.vibrate(VIBRATOR_DURATION);
         }
     }
 
-    @Override
-    public void setOnLongClickListener(OnLongClickListener l) {
-        throw new UnsupportedOperationException(
-                "user setOnItemLongClickListener instead of this");
+    public void setOnItemLongClickListener(OnItemLongClickListener l) {
+        mOnItemLongClickListener = l;
     }
 
-    public void setOnItemLongClickListener(OnItemLongClickListener lsnr) {
-        mOnItemLongClickListener = lsnr;
+    public void setOnItemClickListener(OnItemClickListener l) {
+        mOnItemClickListener = l;
+    }
+
+    public void setOnItemExpandedListener(OnItemExpandedListener l) {
+        mOnItemExpandedListener = l;
+    }
+
+    public void setOnItemFoldedListener(OnItemFoldedListener l) {
+        mOnItemFoldedListener = l;
     }
 
     @Override
@@ -141,16 +164,6 @@ public class SimListView extends ViewGroup implements OnGestureListener {
         }
     }
 
-    @Override
-    public void setOnClickListener(OnClickListener l) {
-        throw new UnsupportedOperationException(
-                "user setOnItemClickListener instead of this");
-    }
-
-    public void setOnItemClickListener(OnItemClickListener lsnr) {
-        mOnItemClickListener = lsnr;
-    }
-
     /**
      * 得到是相对于View的位置，要得到在adapter中的位置，需要加上mFirstVisiblePosition
      * */
@@ -160,11 +173,9 @@ public class SimListView extends ViewGroup implements OnGestureListener {
         final int count = getChildCount();
         for (int i = count - 1; i >= 0; i--) {
             final View child = getChildAt(i);
-            if (child.getVisibility() == View.VISIBLE) {
-                child.getHitRect(frame);
-                if (frame.contains(x, y)) {
-                    return i;
-                }
+            child.getHitRect(frame);
+            if (frame.contains(x, y)) {
+                return i;
             }
         }
         return INVALID_POSITION;
@@ -173,7 +184,6 @@ public class SimListView extends ViewGroup implements OnGestureListener {
     @Override
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
             float distanceY) {
-
         moveViews((int) -distanceY);
 
         return true;
@@ -182,7 +192,7 @@ public class SimListView extends ViewGroup implements OnGestureListener {
     /**
      * 这里处理View的发放和回收
      * */
-    private void moveViews(int deltaY) {
+    protected void moveViews(int deltaY) {
         if (getChildCount() == 0) {
             return;
         }
@@ -241,7 +251,6 @@ public class SimListView extends ViewGroup implements OnGestureListener {
     }
 
     private class FlingRunable implements Runnable {
-        private static final int INTERVAL = 10;
         private Scroller mScroller;
         private int lastPosition = 0;
 
@@ -318,11 +327,7 @@ public class SimListView extends ViewGroup implements OnGestureListener {
 
         View view = mAdapter.getView(mFirstVisiblePosition,
                 mViewStack.size() > 0 ? mViewStack.pop() : null, this);
-        int heightMeasureSpec = MeasureSpec.makeMeasureSpec(0,
-                MeasureSpec.UNSPECIFIED);
-        int widthMeasureSpec = MeasureSpec.makeMeasureSpec(getWidth(),
-                MeasureSpec.AT_MOST);
-        view.measure(widthMeasureSpec, heightMeasureSpec);
+        measureView(view);
 
         int firstChildIndex = 0;
         int bottom = getChildAt(0).getTop();
@@ -348,11 +353,7 @@ public class SimListView extends ViewGroup implements OnGestureListener {
         View view = mAdapter.getView(mLastVisiblePosition,
                 mViewStack.size() > 0 ? mViewStack.pop() : null, this);
 
-        int heightMeasureSpec = MeasureSpec.makeMeasureSpec(0,
-                MeasureSpec.UNSPECIFIED);
-        int widthMeasureSpec = MeasureSpec.makeMeasureSpec(getWidth(),
-                MeasureSpec.AT_MOST);
-        view.measure(widthMeasureSpec, heightMeasureSpec);
+        measureView(view);
 
         int lastChildIndex = getChildCount();
         addViewInLayout(view, lastChildIndex, generateDefaultLayoutParams());
@@ -366,6 +367,22 @@ public class SimListView extends ViewGroup implements OnGestureListener {
         view.layout(0, top, getWidth(), bottom);
 
         return bottom > getHeight();
+    }
+
+    private void measureView(View view) {
+        int heightMeasureSpec = MeasureSpec.makeMeasureSpec(0,
+                MeasureSpec.UNSPECIFIED);
+        int widthMeasureSpec = MeasureSpec.makeMeasureSpec(getWidth(),
+                MeasureSpec.AT_MOST);
+
+        LayoutParams params = view.getLayoutParams();
+        if (params == null) {
+            params = new LayoutParams(LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT);
+            view.setLayoutParams(params);
+        }
+
+        view.measure(widthMeasureSpec, heightMeasureSpec);
     }
 
     private boolean isAdapterEmpty() {
@@ -468,43 +485,242 @@ public class SimListView extends ViewGroup implements OnGestureListener {
         }
     }
 
+    /**
+     * 展开某一项
+     * 
+     * */
+    public void expand(final int position) {
+        // 检验Posiotn
+        final int pos = position - mFirstVisiblePosition;
+        final int childCount = getChildCount();
+        if (!isPositionIn(position)) {
+            return;
+        }
+        // 现将下面的View移动上来
+        View v = getChildAt(pos);
+        final int delta = v.getHeight();
+        offsetChildren(pos + 1, childCount - 1, -delta);
+        // 补齐下面的空白
+        showViewIn(0);
+        invalidate();
+
+        // 开始移动的动画
+        final Scroller scroller = new Scroller(getContext());
+        scroller.startScroll(0, 0, 0, delta, FOLD_DURATION);
+        post(new Runnable() {
+            private int lastPos = 0;
+
+            @Override
+            public void run() {
+                if (scroller.computeScrollOffset()) {
+                    int y = scroller.getCurrY();
+                    offsetChildren(pos + 1, getChildCount() - 1, y - lastPos);
+                    lastPos = y;
+                    invalidate();
+                    postDelayed(this, INTERVAL);
+                } else {
+                    offsetChildren(pos + 1, getChildCount() - 1,
+                            scroller.getFinalY() - lastPos);
+                    hideViewsOut();
+                    invalidate();
+
+                    if (mOnItemExpandedListener != null) {
+                        mOnItemExpandedListener.onExpanded(position);
+                    }
+                }
+            }
+        });
+    }
+
+    private boolean isPositionIn(int position) {
+        final int pos = position - mFirstVisiblePosition;
+        return pos >= 0 && pos < getChildCount();
+    }
+
+    /**
+     * 上下移动子View
+     * */
+    private void offsetChildren(int fromPos, int toPos, int deltaY) {
+        for (int i = fromPos; i <= toPos; i++) {
+            getChildAt(i).offsetTopAndBottom(deltaY);
+        }
+    }
+
+    /**
+     * 折叠某一项
+     * 
+     * */
+    public void fold(final int position) {
+        final int pos = position - mFirstVisiblePosition;
+
+        if (!isPositionIn(position)) {
+            return;
+        }
+
+        final int delta = getChildAt(pos).getHeight();
+
+        // 开始移动的动画
+        final Scroller scroller = new Scroller(getContext());
+        scroller.startScroll(0, 0, 0, -delta, FOLD_DURATION);
+        post(new Runnable() {
+            private int lastPos = 0;
+
+            @Override
+            public void run() {
+                if (scroller.computeScrollOffset()) {
+                    int y = scroller.getCurrY();
+                    offsetChildren(pos + 1, getChildCount() - 1, y - lastPos);
+                    lastPos = y;
+                    showViewIn(0);
+                    invalidate();
+
+                    postDelayed(this, INTERVAL);
+                } else {
+                    offsetChildren(pos + 1, getChildCount() - 1,
+                            scroller.getFinalY() - lastPos);
+                    if (mOnItemFoldedListener != null) {
+                        mOnItemFoldedListener.onFolded(position);
+                    }
+                    invalidateViews();
+                }
+            }
+        });
+    }
+
+    public void expand2(int position) {
+        if (!isPositionIn(position)) {
+            return;
+        }
+
+        int pos = position - mFirstVisiblePosition;
+
+        View v = getChildAt(pos);
+        int h = v.getHeight();
+        TranslateAnimation anim = new TranslateAnimation(0, 0, -h, 0);
+        anim.setDuration(FOLD_DURATION);
+        int count = getChildCount();
+        for (int i = pos + 1; i < count; i++) {
+            getChildAt(i).startAnimation(anim);
+        }
+    }
+
+    public void fold2(final int position) {
+        // 删除数据
+        if (mOnItemFoldedListener != null) {
+            mOnItemFoldedListener.onFolded(position);
+        }
+
+        if (!isPositionIn(position)) {
+            return;
+        }
+
+        // 添加动画
+        int pos = position - mFirstVisiblePosition;
+
+        View v = getChildAt(pos);
+        int h = v.getHeight();
+        TranslateAnimation anim = new TranslateAnimation(0, 0, h, 0);
+        anim.setDuration(FOLD_DURATION);
+        int count = getChildCount();
+        for (int i = pos; i < count; i++) {
+            getChildAt(i).startAnimation(anim);
+        }
+    }
+
+    /**
+     * 将item从fromPos移动到toPos的动画
+     * */
+    public void move(final int fromPos, final int toPos) {
+        if (!isPositionIn(fromPos) || !isPositionIn(toPos) || fromPos == toPos) {
+            return;
+        }
+        // 将内容从上面移到下面
+        boolean downMove = fromPos < toPos;
+        int upper = (downMove ? fromPos : toPos) - mFirstVisiblePosition;
+        int lower = (downMove ? toPos : fromPos) - mFirstVisiblePosition;
+        int height = getChildAt(upper).getHeight();
+        int dist = downMove ? height : -height;
+
+        TranslateAnimation anim = new TranslateAnimation(0, 0, dist, 0);
+        anim.setDuration(FOLD_DURATION);
+
+        if (downMove) {
+            lower--;
+        } else {
+            upper++;
+        }
+        for (int i = upper; i <= lower; i++) {
+            getChildAt(i).startAnimation(anim);
+        }
+    }
+
+    /**
+     * 平滑地滑到底端
+     * 
+     * @param speed
+     *            滑动速度，即两次刷新之间的移动距离
+     * */
+    public void smoothToEnd(final int duration) {
+        if (mAdapter.getCount() == 0) {
+            return;
+        }
+
+        if (mScroll2EndRunnable != null) {
+            removeCallbacks(mScroll2EndRunnable);
+        }
+
+        final int unitHight = getChildAt(0).getHeight();
+        final int distance = (mAdapter.getCount() - mLastVisiblePosition)
+                * unitHight;
+
+        mScroll2EndRunnable = new Runnable() {
+            private long t = System.currentTimeMillis();
+
+            @Override
+            public void run() {
+                if (mLastVisiblePosition != mAdapter.getCount() - 1
+                        || getChildAt(getChildCount() - 1).getBottom() > getHeight()) {
+                    // 移动
+                    long dt = System.currentTimeMillis() - t;
+                    int speed = -distance * (int) dt / duration;
+                    speed = Math.min(-10, speed);
+                    moveViews(speed);
+                    postDelayed(this, INTERVAL);
+                } else {
+                    mScroll2EndRunnable = null;
+                    // 移回原来位置
+                }
+            }
+        };
+        post(mScroll2EndRunnable);
+    }
+
+    /** 点击事件 */
     public interface OnItemClickListener {
         void onClick(View parent, View view, int position);
     }
 
+    /** 长击事件 */
     public interface OnItemLongClickListener {
         void onLongClick(View parent, View view, int position);
     }
 
-    public int getHeaderViewsCount() {
-        return 0;
+    /** 添加的动画 */
+    public interface OnItemExpandedListener {
+        /**
+         * @param position
+         *            adapter中的位置
+         * */
+        void onExpanded(int position);
     }
 
-    public int getFooterViewsCount() {
-        return 0;
+    /** 删除的动画 */
+    public interface OnItemFoldedListener {
+        /**
+         * @param position
+         *            adapter中的位置
+         * */
+        void onFolded(int position);
     }
 
-    public int getFirstVisiblePosition() {
-        return mFirstVisiblePosition;
-    }
-
-    public int getLastVisiblePosition() {
-        return mLastVisiblePosition;
-    }
-
-    public int getCount() {
-        return mAdapter.getCount();
-    }
-
-    public void smoothScrollBy(int distance, int duration) {
-        moveViews(distance);
-    }
-
-    public void addHeaderView(View headerView) {
-
-    }
-
-    public void addFooterView(View footerView) {
-
-    }
 }
