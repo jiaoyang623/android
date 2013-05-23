@@ -19,12 +19,19 @@ public class DrawOrderHelper {
 
     /**
      * reset drawing order
+     * 
+     * @param size
+     *            > 0
      * */
     public void reset(int size) {
-        if (size < 0) {
-            throw new IllegalArgumentException("error in " + size + " < 0");
+        if (size <= 0) {
+            throw new IllegalArgumentException("error in " + size + " <= 0");
         }
-        orders = new int[size];
+
+        if (orders == null || orders.length != size) {
+            orders = new int[size];
+        }
+
         int count = orders.length;
         for (int i = 0; i < count; i++) {
             orders[i] = i;
@@ -33,8 +40,10 @@ public class DrawOrderHelper {
     }
 
     /**
+     * orders will be reset when childCount changed
+     * 
      * @param count
-     *            the amount of children
+     *            the amount of children and count > 0
      * @param i
      *            current drawing index and i<count
      * @return target drawing index and return < count
@@ -56,10 +65,6 @@ public class DrawOrderHelper {
      *            [0, orders.length)
      * */
     public void bring2Front(int i) {
-        if (isNotInArray(i)) {
-            throw new IllegalArgumentException("i should be in [0, "
-                    + orders.length + "), in fact " + i);
-        }
 
         // 寻找显示点的位置
         int index = getIndex(i);
@@ -76,14 +81,26 @@ public class DrawOrderHelper {
     }
 
     /**
+     * 
      * @param i
      *            [0, orders.length)
      * @return [0, orders.length)
      * */
     private int getIndex(int i) {
+        if (isNotInArray(i)) {
+            throw new IllegalArgumentException("i should be in [0, "
+                    + orders.length + "), in fact " + i);
+        }
+
         int index = 0;
-        for (; index < orders.length && orders[index] != i; index++)
-            ;
+
+        while (index < orders.length) {
+            if (orders[index] == i) {
+                break;
+            }
+            index++;
+        }
+
         return index;
     }
 
@@ -92,10 +109,6 @@ public class DrawOrderHelper {
      *            [0, orders.length)
      * */
     public void put2Back(int i) {
-        if (isNotInArray(i)) {
-            throw new IllegalArgumentException("i should be in [0, "
-                    + orders.length + "), in fact " + i);
-        }
         int index = getIndex(i);
         if (index == 0) {
             return;
@@ -107,11 +120,6 @@ public class DrawOrderHelper {
     }
 
     public void exchange(int i0, int i1) {
-        if (isNotInArray(i0) || isNotInArray(i1)) {
-            throw new IllegalArgumentException("i0 and i1 should be in [0,"
-                    + orders.length + " ) in face i0 = " + i0 + ", i1 = " + i1);
-        }
-
         int index0 = getIndex(i0);
         int index1 = getIndex(i1);
 
