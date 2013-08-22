@@ -154,8 +154,8 @@ public class BitmapUtils {
 		FileOutputStream out = null;
 		try {
 			out = new FileOutputStream(dstPath);
-			final int QUALITY = 90;
-			bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, out);
+			final int QUALITY = 100;
+			resizedBitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, out);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} finally {
@@ -171,6 +171,9 @@ public class BitmapUtils {
 		return resizedBitmap;
 	}
 
+	/**
+	 * 文件复制
+	 * */
 	private static void copyFile(String src, String dst) throws IOException {
 		final int BUFFER_SIZE = 1024;
 		byte[] buffer = new byte[BUFFER_SIZE];
