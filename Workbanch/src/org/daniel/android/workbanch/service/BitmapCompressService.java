@@ -9,7 +9,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 
 /**
- * TODO
+ * 图片压缩的服务
  * 
  * @author jiaoyang<br>
  *         email: jiaoyang@360.cn
@@ -29,7 +29,7 @@ public class BitmapCompressService extends Service {
 		public Bitmap compress(String srcPath, String dstPath, int minWidth,
 				int minHeight) throws RemoteException {
 			return BitmapUtils.resizeBitmap(srcPath, dstPath, minWidth,
-					minHeight, Bitmap.Config.ARGB_8888);
+					minHeight, Bitmap.Config.RGB_565);
 		}
 	};
 
