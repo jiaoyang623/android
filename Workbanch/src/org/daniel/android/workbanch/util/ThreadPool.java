@@ -11,7 +11,7 @@ import android.util.SparseArray;
  * 可以以集合方式撤销执行的线程池
  * 
  * @author jiaoyang<br>
- *         email: jiaoyang@360.cn
+ *         email: yangjiao623@gmail.com
  * @date 2013-8-22 下午4:37:15
  * @version 1.0
  */

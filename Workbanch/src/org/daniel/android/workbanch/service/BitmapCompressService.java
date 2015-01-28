@@ -12,7 +12,7 @@ import android.os.RemoteException;
  * 图片压缩的服务
  * 
  * @author jiaoyang<br>
- *         email: jiaoyang@360.cn
+ *         email: yangjiao623@gmail.com
  * @date 2013-8-22 下午2:51:24
  * @version 1.0
  */

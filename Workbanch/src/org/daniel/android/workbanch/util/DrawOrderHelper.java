@@ -6,7 +6,7 @@ package org.daniel.android.workbanch.util;
  * 注意：这个类只能改变显示顺序，不能改变事件的接收顺序，也就是说，覆盖在上面的view就算显示在下面也会先接受到触摸事件
  * 
  * @author 焦阳 <br>
- *         email:jiaoyang1@staff.sina.com.cn
+ *         email:yangjiao623@gmail.com
  * @version 创建时间: May 22, 2013 10:52:02 AM
  * */
 public class DrawOrderHelper {

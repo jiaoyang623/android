@@ -13,7 +13,7 @@ import android.graphics.BitmapFactory;
  * 图片处理的工具类
  * 
  * @author jiaoyang<br>
- *         email: jiaoyang@360.cn
+ *         email: yangjiao623@gmail.com
  * @date 2013-8-22 上午11:08:44
  * @version 1.0
  */
