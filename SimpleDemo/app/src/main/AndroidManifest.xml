@@ -32,6 +32,7 @@
         <activity android:name=".GlideActivity"/>
         <activity android:name=".OutterDrawActivity"/>
         <activity android:name=".RecyclerViewActivity"/>
+        <activity android:name=".DataBindingActivity"/>
     </application>
 
 </manifest>
