@@ -18,14 +18,14 @@ public class GlideActivity extends AppCompatActivity implements View.OnClickList
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_glide);
 		mImageView = (ImageView) findViewById(R.id.image);
-		findViewById(R.id.click).setOnClickListener(this);
+		findViewById(R.id.add).setOnClickListener(this);
 
 	}
 
 	@Override
 	public void onClick(View v) {
 		switch (v.getId()) {
-			case R.id.click:
+			case R.id.add:
 				Glide.with(this).load("http://img3.imgtn.bdimg.com/it/u=4245198817,693717552&fm=21&gp=0.jpg").into(mImageView);
 				break;
 		}
