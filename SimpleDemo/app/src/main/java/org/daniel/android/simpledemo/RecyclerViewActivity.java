@@ -58,4 +58,12 @@ public class RecyclerViewActivity extends AppCompatActivity {
 		}
 	}
 
+	private class MyLayoutManager extends RecyclerView.LayoutManager{
+
+		@Override
+		public RecyclerView.LayoutParams generateDefaultLayoutParams() {
+			return null;
+		}
+	}
+
 }
