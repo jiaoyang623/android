@@ -2,6 +2,7 @@
 <layout xmlns:android="http://schemas.android.com/apk/res/android">
 
     <data>
+
         <variable
             name="user"
             type="org.daniel.android.simpledemo.bean.UserBean"/>
@@ -16,7 +17,9 @@
             android:id="@+id/firstName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_margin="10dp"
             android:text="@{user.firstName}"
+            android:textColor="#ff000000"
             />
 
         <TextView
@@ -25,6 +28,13 @@
             android:layout_height="wrap_content"
             android:layout_toRightOf="@id/firstName"
             android:text="@{user.lastName}"
+            android:textColor="#ff000000"
             />
+
+        <ListView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@id/firstName"/>
     </RelativeLayout>
 </layout>
